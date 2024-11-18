@@ -2,22 +2,33 @@ from deeplearning.AIsim_main2 import *
 # from AIsim_main2 import OFDMModulator, OFDMDemodulator, MyLMMSEEqualizer, sim_ber, ber_plot
 
 
+# buffer size is the size threshold to trigger the process to make sure there is enough data
+# this is temporary
 buffer_size = 16384 * N  # Define N based on desired frame length
-current_iq_data = b''
+# current_iq_data = b
 
-while True:
-    data = conn.recv(16384)
-    if data:
-        current_iq_data += data
-        if len(current_iq_data) >= buffer_size:
-            # Pass the frame to the processing pipeline
-            process_frame(self, current_iq_data)
-            current_iq_data = b  # Reset the buffer for the next frame
+# while True:
+    # data = conn.recv(16384)
+    # if data:
+    #     current_iq_data += data
+    #     if len(current_iq_data) >= buffer_size:
+    #         # Pass the frame to the processing pipeline
+    #         process_frame(self, current_iq_data)
+    #         current_iq_data = b  # Reset the buffer for the next frame
+def init_sctp_connection():
+    # Initialize the SCTP connection
+    ip_addr = socket.gethostbyname(socket.gethostname())
+    port = 5000
 
+    # Set up the SCTP server
+    server = sctp.sctpsocket_tcp(socket.AF_INET)
+    server.bind((ip_addr, port))
+    server.listen()
+    
+    print(f"SCTP server started at {ip_addr}:{port}")
+    return server
 
-
-
-
+    
 
 def process_frame(self, iq_data):
     # Encapsulate the entire processing pipeline for each frame
@@ -66,3 +77,33 @@ def run_interference_detection(self, data):
         conn.send(cmds['ENABLE_ADAPTIVE_MCS'])
     else:
         conn.send(cmds['DISABLE_ADAPTIVE_MCS'])
+
+def main():
+    global current_iq_data
+    
+    # Initialize SCTP connection
+    server = init_sctp_connection()
+
+    while True:
+        try:
+            # Accept an incoming connection from nodeB
+            conn, addr = server.accept()
+            print(f"Connected by {addr}")
+
+            while True:
+                # Receive data in chunks of 16384 bytes
+                data = conn.recv(16384)
+                if data:
+                    current_iq_data += data
+                    if len(current_iq_data) >= buffer_size:
+                        # Pass the frame to the processing pipeline
+                        process_frame(current_iq_data)
+                        current_iq_data = b  # Reset the buffer for the next frame
+
+        except OSError as e:
+            print(f"Connection error: {e}")
+            continue
+
+# Run the main function
+if __name__ == "__main__":
+    main()
